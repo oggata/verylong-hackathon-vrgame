@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>verylong-hackathon-vrgame</title>
+    <!-- Babylon.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+    <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+    <script src="https://preview.babylonjs.com/ammo.js"></script>
+    <script src="https://preview.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/Oimo.js"></script>
+    <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+    <style>
+      html,
+      body {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+      var canvas = document.getElementById("renderCanvas");
+      var startRenderLoop = function (engine, canvas) {
+        engine.runRenderLoop(function () {
+          if (sceneToRender && sceneToRender.activeCamera) {
+            sceneToRender.render();
+          }
+        });
+      };
+      //Config
+      var ObjectDestroyTime = 100 * 8;
+      var CameraType = 2; //1:PC 2:VR
+      var MaxBoxCreateTime = 30;
+      var MaxBoxCount = 100;
+      //Var
+      var GameTime = 0;
+      var BoxCreateTime = 0;
+      var IsGameOver = false;
+      var IsGameReset = false;
+      var engine = null;
+      var scene = null;
+      var sceneToRender = null;
+      var createDefaultEngine = function () {
+        return new BABYLON.Engine(canvas, true, {
+          preserveDrawingBuffer: true,
+          stencil: true,
+          disableWebGL2Support: false,
+        });
+      };
+      var createScene = async function () {
+        //シーン
+        var scene = new BABYLON.Scene(engine);
+        scene.enablePhysics();
+        scene.checkCollisions = true;
+        scene.collisionsEnabled = true;
+        scene.collisionEnabled = true;
+        //物理エンジン
+        var physicsViewer = new BABYLON.Debug.PhysicsViewer();
+        var physicsHelper = new BABYLON.PhysicsHelper(scene);
+        //カメラ
+        var camera = new BABYLON.FreeCamera(
+          "camera1",
+          new BABYLON.Vector3(0, 2, -20),
+          scene
+        );
+        camera.setTarget(BABYLON.Vector3.Zero());
+        camera.attachControl(canvas, true);
+        camera.checkCollisions = true;
+        camera.applyGravity = true;
+        camera.onCollide = function (collidedMesh) {
+          if (collidedMesh.name != "ground1") {
+            IsGameOver = true;
+          }
+        };
+        camera.ellipsoid = new BABYLON.Vector3(2, 2, 2);
+        camera.collisionRadius = new BABYLON.Vector3(0.5, 0.5, 0.5);
+        camera.attachControl(canvas, true);
+        //ライト
+        var light = new BABYLON.HemisphericLight(
+          "light1",
+          new BABYLON.Vector3(0, 1, 0),
+          scene
+        );
+        light.intensity = 0.8;
+        //影
+        //var environment = scene.createDefaultEnvironment({ enableGroundShadow: true });
+        //environment.setMainColor(BABYLON.Color3.FromHexString("#74b9ff"))
+        //environment.ground.parent.position.y = 0;
+        //environment.ground.position.y = 0
+        //地面
+        var ground = BABYLON.Mesh.CreateGround("ground1", 1000, 1000, 2, scene);
+        var groundMaterial = new BABYLON.StandardMaterial("ground", scene);
+        groundMaterial.diffuseTexture = new BABYLON.Texture(
+          "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/grand.png?v=1657102468367",
+          scene
+        );
+        groundMaterial.diffuseTexture.uScale = 600;
+        groundMaterial.diffuseTexture.vScale = 600;
+        groundMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+        ground.material = groundMaterial;
+        ground.receiveShadows = true;
+        ground.checkCollisions = true;
+        ground.physicsImpostor = new BABYLON.PhysicsImpostor(
+          ground,
+          BABYLON.PhysicsImpostor.BoxImpostor,
+          {
+            mass: 0,
+            restitution: 1,
+          },
+          scene
+        );
+        //空を作る
+        var skybox = BABYLON.MeshBuilder.CreateBox(
+          "skyBox",
+          {
+            size: 1000.0,
+          },
+          scene
+        );
+        var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture(
+          "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/sky.png?v=1657103500375",
+          scene
+        );
+        skyboxMaterial.reflectionTexture.coordinatesMode =
+          BABYLON.Texture.SKYBOX_MODE;
+        skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+        skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+        skybox.material = skyboxMaterial;
+        var BoxArray = Array();
+        let advancedTexture =
+          BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("myUI");
+        DebugLabel = new BABYLON.GUI.TextBlock();
+        DebugLabel.text = "VR PC ==> Reset A Button";
+        DebugLabel.color = "green";
+        DebugLabel.textHorizontalAlignment =
+          BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        DebugLabel.textVerticalAlignment =
+          BABYLON.GUI.TextBlock.VERTICAL_ALIGNMENT_BOTTOM;
+        DebugLabel.fontSize = "30";
+        DebugLabel.top = "-100px";
+        advancedTexture.addControl(DebugLabel);
+        TimeLabel = new BABYLON.GUI.TextBlock();
+        TimeLabel.text = "GameTime";
+        TimeLabel.color = "yellow";
+        TimeLabel.top = "100px";
+        TimeLabel.textHorizontalAlignment =
+          BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        TimeLabel.textVerticalAlignment =
+          BABYLON.GUI.TextBlock.VERTICAL_ALIGNMENT_TOP;
+        TimeLabel.fontSize = "30";
+        advancedTexture.addControl(TimeLabel);
+        GameOverLabel = new BABYLON.GUI.TextBlock();
+        GameOverLabel.text = "";
+        //GameOverLabel.height = "150px";
+        //GameOverLabel.width = "1400px";
+        GameOverLabel.color = "red";
+        GameOverLabel.textHorizontalAlignment =
+          BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        //GameOverLabel.textVerticalAlignment = BABYLON.GUI.TextBlock.VERTICAL_ALIGNMENT_BOTTOM;
+        GameOverLabel.fontSize = "50";
+        advancedTexture.addControl(GameOverLabel);
+        var xrHelper = await scene.createDefaultXRExperienceAsync();
+        var xr = await scene.createDefaultXRExperienceAsync({
+          xrInput: xrHelper.input,
+          floorMeshes: [ground],
+          disableTeleportation: false,
+        });
+
+        function getRand(from, to) {
+          return from + Math.floor(Math.random() * (to - from + 1));
+        }
+        //controller input
+        xr.input.onControllerAddedObservable.add((controller) => {
+          controller.onMotionControllerInitObservable.add(
+            (motionController) => {
+              if (motionController.handness === "left") {
+                const xr_ids = motionController.getComponentIds();
+                let triggerComponent = motionController.getComponent(xr_ids[0]); //xr-standard-trigger
+                triggerComponent.onButtonStateChangedObservable.add(() => {
+                  if (triggerComponent.pressed) {
+                    //DebugLabel.text = "triggerComponent.pressed";
+                  }
+                });
+                let squeezeComponent = motionController.getComponent(xr_ids[1]); //xr-standard-squeeze
+                squeezeComponent.onButtonStateChangedObservable.add(() => {
+                  if (squeezeComponent.pressed) {
+                    //DebugLabel.text = "squeezeComponent.pressed";
+                  }
+                });
+                let thumbstickComponent = motionController.getComponent(
+                  xr_ids[2]
+                ); //xr-standard-thumbstick
+                thumbstickComponent.onButtonStateChangedObservable.add(() => {
+                  if (thumbstickComponent.pressed) {
+                    //DebugLabel.text = "thumbstickComponent.pressed";
+                  }
+                  let axes = thumbstickComponent.axes;
+                  Box_Left_ThumbStick.position.x += axes.x;
+                  Box_Left_ThumbStick.position.y += axes.y;
+                });
+                thumbstickComponent.onAxisValueChangedObservable.add(
+                  (axes) => {}
+                );
+                let xbuttonComponent = motionController.getComponent(xr_ids[3]); //x-button
+                xbuttonComponent.onButtonStateChangedObservable.add(() => {
+                  if (xbuttonComponent.pressed) {
+                    //DebugLabel.text = "xbuttonComponent.pressed";
+                  }
+                });
+                let ybuttonComponent = motionController.getComponent(xr_ids[4]); //y-button
+                ybuttonComponent.onButtonStateChangedObservable.add(() => {
+                  if (ybuttonComponent.pressed) {
+                    //DebugLabel.text = "ybuttonComponent.pressed";
+                  }
+                });
+              }
+              if (motionController.handness === "right") {
+                const xr_ids = motionController.getComponentIds();
+                let triggerComponent = motionController.getComponent(xr_ids[0]); //xr-standard-trigger
+                triggerComponent.onButtonStateChangedObservable.add(() => {
+                  if (triggerComponent.pressed) {
+                    //DebugLabel.text = "triggerComponent.pressed";
+                  }
+                });
+                let squeezeComponent = motionController.getComponent(xr_ids[1]); //xr-standard-squeeze
+                squeezeComponent.onButtonStateChangedObservable.add(() => {
+                  if (squeezeComponent.pressed) {
+                    //DebugLabel.text = "squeezeComponent.pressed";
+                  }
+                });
+                let thumbstickComponent = motionController.getComponent(
+                  xr_ids[2]
+                ); //xr-standard-thumbstick
+                thumbstickComponent.onButtonStateChangedObservable.add(() => {
+                  //DebugLabel.text = "thumbstickComponent.pressedd";
+                });
+                thumbstickComponent.onAxisValueChangedObservable.add(
+                  (axes) => {}
+                );
+                let abuttonComponent = motionController.getComponent(xr_ids[3]); //a-button
+                abuttonComponent.onButtonStateChangedObservable.add(() => {
+                  if (abuttonComponent.pressed) {
+                    //DebugLabel.text = "abuttonComponent.pressed";
+                    IsGameReset = true;
+                  }
+                });
+                let bbuttonComponent = motionController.getComponent(xr_ids[4]); //b-button
+                bbuttonComponent.onButtonStateChangedObservable.add(() => {
+                  if (bbuttonComponent.pressed) {
+                    //DebugLabel.text = "bbuttonComponent.pressed";
+                  }
+                });
+              }
+            }
+          );
+        });
+        setInterval(function () {
+          if (IsGameOver == false) {
+            GameTime++;
+            GameOverLabel.text = "";
+            if (BoxArray.length < MaxBoxCount) {
+              BoxCreateTime++;
+            }
+          } else {
+            GameOverLabel.text = "GAME OVER! (VR or PC => Reset A Button)";
+          }
+          if (IsGameReset == true) {
+            try {
+              //var greeting = "こんにちは、" + name + "です。";
+              //console.log( greeting );
+              for (var i = 0; i < BoxArray.length; i++) {
+                scene.removeMesh(BoxArray[i]);
+              }
+            } catch (e) {
+              console.log(e.message);
+            }
+            IsGameReset = false;
+            GameTime = 0;
+            BoxCreateTime = 0;
+            //GameOverLabel.text = "";
+            //for (var i = 0; i < BoxArray.length; i++) {
+            //    scene.removeMesh(BoxArray[i]);
+            //}
+            //GameOverLabel.text = "";
+            IsGameOver = false;
+          }
+          TimeLabel.text = "time:" + GameTime;
+          var distance = 0;
+          if (BoxCreateTime > MaxBoxCreateTime) {
+            BoxCreateTime = 0;
+            //if(isGameStart == false) return;
+            var mat = new BABYLON.StandardMaterial("mat", scene);
+            var textureNumber = getRand(1, 8);
+            var url =
+              "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-A.png?v=1657102468584";
+            if (textureNumber == 1) {
+              url =
+                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-A.png?v=1657102468584";
+            } else if (textureNumber == 2) {
+              url =
+                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-B.png?v=1657102468887";
+            } else if (textureNumber == 3) {
+              url =
+                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-C.png?v=1657102468563";
+            } else if (textureNumber == 4) {
+              url =
+                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-D.png?v=1657102468978";
+            } else if (textureNumber == 5) {
+              url =
+                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-E.png?v=1657102468367";
+            } else if (textureNumber == 6) {
+              url =
+                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-F.png?v=1657103793832";
+            } else if (textureNumber == 7) {
+              url =
+                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-G.png?v=1657103794128";
+            } else if (textureNumber == 8) {
+              url =
+                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-H.png?v=1657103793784";
+            }
+            var texture = new BABYLON.Texture(url, scene);
+            mat.diffuseColor = new BABYLON.Color3(255, 255, 255);
+            mat.emissiveColor = new BABYLON.Color3(255, 255, 255);
+            mat.diffuseTexture = texture;
+            mat.diffuseTexture.hasAlpha = false;
+            mat.alpha = 1.0;
+            var columns = 6; // 6 columns
+            var rows = 1; // 1 row
+            var faceUV = new Array(6);
+            for (var i = 0; i < 6; i++) {
+              faceUV[i] = new BABYLON.Vector4(
+                i / columns,
+                0,
+                (i + 1) / columns,
+                1 / rows
+              );
+            }
+            var options = {
+              faceUV: faceUV,
+              wrap: true,
+            };
+            const box = BABYLON.MeshBuilder.CreateBox(
+              "box",
+              {
+                height: 80,
+                width: 5,
+                depth: 5,
+                faceUV: faceUV,
+                wrap: false,
+              },
+              scene
+            );
+            var posX = getRand(0, 150);
+            var posZ = getRand(0, 150);
+            box.position.x = posX - 150 / 2;
+            box.position.y = 500;
+            box.position.z = posZ - 150 / 2;
+            var boxImpostorParams = {
+              mass: 2,
+              restitution: 0,
+              friction: 1,
+            };
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(
+              box,
+              BABYLON.PhysicsImpostor.BoxImpostor,
+              boxImpostorParams,
+              scene
+            );
+            box.material = mat;
+            box.checkCollisions = true;
+            box.passedTime = 0;
+            BoxArray.push(box);
+            //衝突検知用のbox1を用意する
+            const box_collision = BABYLON.MeshBuilder.CreateBox(
+              "box",
+              {
+                height: 6,
+                width: 6,
+                depth: 6,
+              },
+              scene
+            );
+            box_collision.position = new BABYLON.Vector3(
+              box.position.x,
+              box.position.y - 40,
+              box.position.z
+            );
+            //box_collision.checkCollisions = true;
+            box.addChild(box_collision);
+            box_collision.setEnabled(false);
+            box_collision.passedTime = 0;
+            BoxArray.push(box_collision);
+            //衝突検知用のbox2を用意する
+            const box_collision2 = BABYLON.MeshBuilder.CreateBox(
+              "box",
+              {
+                height: 6,
+                width: 6,
+                depth: 6,
+              },
+              scene
+            );
+            box_collision2.position = new BABYLON.Vector3(
+              box.position.x,
+              box.position.y + 40,
+              box.position.z
+            );
+            //box_collision.checkCollisions = true;
+            box.addChild(box_collision2);
+            box_collision2.setEnabled(false);
+            box_collision2.passedTime = 0;
+            BoxArray.push(box_collision2);
+            //衝突検知用のbox3を用意する
+            const box_collision3 = BABYLON.MeshBuilder.CreateBox(
+              "box",
+              {
+                height: 6,
+                width: 6,
+                depth: 6,
+              },
+              scene
+            );
+            box_collision3.position = new BABYLON.Vector3(
+              box.position.x,
+              box.position.y - 20,
+              box.position.z
+            );
+            //box_collision.checkCollisions = true;
+            box.addChild(box_collision3);
+            box_collision3.setEnabled(false);
+            box_collision3.passedTime = 0;
+            BoxArray.push(box_collision3);
+            //衝突検知用のbox4を用意する
+            const box_collision4 = BABYLON.MeshBuilder.CreateBox(
+              "box",
+              {
+                height: 6,
+                width: 6,
+                depth: 6,
+              },
+              scene
+            );
+            box_collision4.position = new BABYLON.Vector3(
+              box.position.x,
+              box.position.y + 20,
+              box.position.z
+            );
+            //box_collision.checkCollisions = true;
+            box.addChild(box_collision4);
+            box_collision4.setEnabled(false);
+            box_collision4.passedTime = 0;
+            BoxArray.push(box_collision4);
+          }
+          for (var i = 0; i < BoxArray.length; i++) {
+            BoxArray[i].passedTime += 1;
+            if (CameraType == 1) {
+              var distance = BABYLON.Vector3.Distance(
+                camera.position,
+                BoxArray[i].getAbsolutePivotPoint()
+              );
+            } else {
+              var distance = BABYLON.Vector3.Distance(
+                xr.baseExperience.camera.position,
+                BoxArray[i].getAbsolutePivotPoint()
+              );
+            }
+            //var distance = BABYLON.Vector3.Distance(xr.baseExperience.camera.position, BoxArray[i].getAbsolutePivotPoint())
+            //var distance = BABYLON.Vector3.Distance(camera.position, BoxArray[i].getAbsolutePivotPoint())
+            if (distance < 12) {
+              IsGameOver = true;
+            }
+            //古いオブジェクトは削除する
+            if (BoxArray[i].passedTime >= ObjectDestroyTime) {
+              scene.removeMesh(BoxArray[i]);
+            }
+          }
+        }, 100);
+        scene.onKeyboardObservable.add((kbInfo) => {
+          switch (kbInfo.type) {
+            case BABYLON.KeyboardEventTypes.KEYDOWN:
+              // console.log("KEY DOWN: ", kbInfo.event.key);
+              switch (kbInfo.event.key) {
+                case "ArrowUp":
+                  //isUpPressed = true;
+                  break;
+                case "ArrowDown":
+                  //isDownPressed = true;
+                  break;
+                case "ArrowLeft":
+                  //isLeftPressed = true;
+                  break;
+                case "ArrowRight":
+                  //isRightPressed = true;
+                  break;
+                case "Space":
+                  IsGameReset = true;
+                  break;
+                case "Shift":
+                  IsGameReset = true;
+                  break;
+                case "r":
+                  IsGameReset = true;
+                  break;
+                case "a":
+                  IsGameReset = true;
+                  break;
+              }
+              break;
+          }
+        });
+        return scene;
+      };
+      window.initFunction = async function () {
+        var asyncEngineCreation = async function () {
+          try {
+            return createDefaultEngine();
+          } catch (e) {
+            console.log(
+              "the available createEngine function failed. Creating the default engine instead"
+            );
+            return createDefaultEngine();
+          }
+        };
+        window.engine = await asyncEngineCreation();
+        if (!engine) throw "engine should not be null.";
+        startRenderLoop(engine, canvas);
+        window.scene = createScene();
+      };
+      initFunction().then(() => {
+        scene.then((returnedScene) => {
+          sceneToRender = returnedScene;
+        });
+      });
+      // Resize
+      window.addEventListener("resize", function () {
+        engine.resize();
+      });
+    </script>
+  </body>
+</html>
