@@ -110,7 +110,7 @@
         var ground = BABYLON.Mesh.CreateGround("ground1", 1000, 1000, 2, scene);
         var groundMaterial = new BABYLON.StandardMaterial("ground", scene);
         groundMaterial.diffuseTexture = new BABYLON.Texture(
-          "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/grand.png?v=1657102468367",
+          "https://oggata.github.io/verylong-hackathon-vrgame/images/grand.png?v=1657102468367",
           scene
         );
         groundMaterial.diffuseTexture.uScale = 600;
@@ -139,7 +139,7 @@
         var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
         skyboxMaterial.backFaceCulling = false;
         skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture(
-          "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/sky.png?v=1657103500375",
+          "https://oggata.github.io/verylong-hackathon-vrgame/images/sky.png?v=1657103500375",
           scene
         );
         skyboxMaterial.reflectionTexture.coordinatesMode =
@@ -313,31 +313,31 @@
             var mat = new BABYLON.StandardMaterial("mat", scene);
             var textureNumber = getRand(1, 8);
             var url =
-              "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-A.png?v=1657102468584";
+              "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-A.png?v=1657102468584";
             if (textureNumber == 1) {
               url =
-                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-A.png?v=1657102468584";
+                "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-A.png?v=1657102468584";
             } else if (textureNumber == 2) {
               url =
-                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-B.png?v=1657102468887";
+                "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-B.png?v=1657102468887";
             } else if (textureNumber == 3) {
               url =
-                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-C.png?v=1657102468563";
+                "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-C.png?v=1657102468563";
             } else if (textureNumber == 4) {
               url =
-                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-D.png?v=1657102468978";
+                "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-D.png?v=1657102468978";
             } else if (textureNumber == 5) {
               url =
-                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-E.png?v=1657102468367";
+                "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-E.png?v=1657102468367";
             } else if (textureNumber == 6) {
               url =
-                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-F.png?v=1657103793832";
+                "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-F.png?v=1657103793832";
             } else if (textureNumber == 7) {
               url =
-                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-G.png?v=1657103794128";
+                "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-G.png?v=1657103794128";
             } else if (textureNumber == 8) {
               url =
-                "https://cdn.glitch.global/4c7a3546-2889-4712-ab19-6d8ae832c93f/verylong-H.png?v=1657103793784";
+                "https://oggata.github.io/verylong-hackathon-vrgame/images/verylong-H.png?v=1657103793784";
             }
             var texture = new BABYLON.Texture(url, scene);
             mat.diffuseColor = new BABYLON.Color3(255, 255, 255);
