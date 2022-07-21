@@ -47,10 +47,12 @@
         });
       };
       //Config
-      var ObjectDestroyTime = 100 * 8;
-      var CameraType = 2; //1:PC 2:VR
-      var MaxBoxCreateTime = 30;
-      var MaxBoxCount = 100;
+      var ObjectDestroyTime = 100 * 10;
+      var CameraType = 1; //1:PC 2:VR
+      var MaxBoxCreateTime = 10;
+      var MaxBoxCount = 500;
+      var WallRange = 100;
+      var CollisionHitDistance = 9;
       //Var
       var GameTime = 0;
       var BoxCreateTime = 0;
@@ -73,6 +75,7 @@
         scene.checkCollisions = true;
         scene.collisionsEnabled = true;
         scene.collisionEnabled = true;
+                
         //物理エンジン
         var physicsViewer = new BABYLON.Debug.PhysicsViewer();
         var physicsHelper = new BABYLON.PhysicsHelper(scene);
@@ -94,6 +97,11 @@
         camera.ellipsoid = new BABYLON.Vector3(2, 2, 2);
         camera.collisionRadius = new BABYLON.Vector3(0.5, 0.5, 0.5);
         camera.attachControl(canvas, true);
+        camera.speed  = 0.3; //Changing it to 0.5
+        //camera.angularSensibilityX = 2000;
+        //camera.angularSensibilityY = 2000;
+        
+        
         //ライト
         var light = new BABYLON.HemisphericLight(
           "light1",
@@ -128,6 +136,69 @@
           },
           scene
         );
+        
+        const WallMat = new BABYLON.StandardMaterial("lMat");
+        WallMat.diffuseColor = new BABYLON.Color3(0,1,1);
+        var wall1 = BABYLON.MeshBuilder.CreateBox(
+          "box",
+          {
+              height: 10, 
+              width: WallRange, 
+              depth: 0.25
+          },
+        scene);
+        wall1.position.x = 0;
+        wall1.position.y = 0;
+        wall1.position.z = WallRange/2 * -1;
+        wall1.checkCollisions = true;
+        wall1.material = WallMat;
+
+        var wall2 = BABYLON.MeshBuilder.CreateBox(
+          "box",
+          {
+              height: 10, 
+              width: WallRange, 
+              depth: 0.25
+          },
+        scene);
+        wall2.position.x = 0;
+        wall2.position.y = 0;
+        wall2.position.z = WallRange/2;
+        wall2.checkCollisions = true;
+        wall2.material = WallMat;
+        
+        var wall3 = BABYLON.MeshBuilder.CreateBox(
+          "box",
+          {
+              height: 10, 
+              width: 0.25, 
+              depth: WallRange
+          },
+        scene);
+        wall3.position.x = WallRange/2 * -1;
+        wall3.position.y = 0;
+        wall3.position.z = 0;
+        wall3.checkCollisions = true;
+        wall3.material = WallMat;
+            
+        
+        
+        var wall4 = BABYLON.MeshBuilder.CreateBox(
+          "box",
+          {
+              height: 10, 
+              width: 0.25, 
+              depth: WallRange
+          },
+        scene);
+        wall4.position.x = WallRange/2;
+        wall4.position.y = 0;
+        wall4.position.z = 0;
+        wall4.checkCollisions = true;
+        wall4.material = WallMat;
+        
+   
+        
         //空を作る
         var skybox = BABYLON.MeshBuilder.CreateBox(
           "skyBox",
@@ -183,10 +254,15 @@
         var xrHelper = await scene.createDefaultXRExperienceAsync();
         var xr = await scene.createDefaultXRExperienceAsync({
           xrInput: xrHelper.input,
-          floorMeshes: [ground],
+          floorMeshes: [ground,wall1,wall2,wall3,wall4],
           disableTeleportation: false,
         });
-
+        xr.baseExperience.onStateChangedObservable.add((state)=>{
+          //XRの中の世界にいる場合に初期化する
+          if(state === BABYLON.WebXRState.IN_XR){
+            CameraType = 2;
+          }        
+        });
         function getRand(from, to) {
           return from + Math.floor(Math.random() * (to - from + 1));
         }
@@ -287,11 +363,11 @@
           }
           if (IsGameReset == true) {
             try {
-              //var greeting = "こんにちは、" + name + "です。";
-              //console.log( greeting );
               for (var i = 0; i < BoxArray.length; i++) {
-                scene.removeMesh(BoxArray[i]);
+                BoxArray[i].dispose();
+                //scene.removeMesh(BoxArray[i]);
               }
+              BoxArray = [];
             } catch (e) {
               console.log(e.message);
             }
@@ -304,6 +380,7 @@
             //}
             //GameOverLabel.text = "";
             IsGameOver = false;
+            //scene.dispose()
           }
           TimeLabel.text = "time:" + GameTime;
           var distance = 0;
@@ -371,11 +448,14 @@
               },
               scene
             );
-            var posX = getRand(0, 150);
-            var posZ = getRand(0, 150);
-            box.position.x = posX - 150 / 2;
+            
+            var BlockAppearRange = WallRange+20;
+            
+            var posX = getRand(0, BlockAppearRange);
+            var posZ = getRand(0, BlockAppearRange);
+            box.position.x = posX - BlockAppearRange / 2;
             box.position.y = 500;
-            box.position.z = posZ - 150 / 2;
+            box.position.z = posZ - BlockAppearRange / 2;
             var boxImpostorParams = {
               mass: 2,
               restitution: 0,
@@ -487,12 +567,13 @@
             }
             //var distance = BABYLON.Vector3.Distance(xr.baseExperience.camera.position, BoxArray[i].getAbsolutePivotPoint())
             //var distance = BABYLON.Vector3.Distance(camera.position, BoxArray[i].getAbsolutePivotPoint())
-            if (distance < 12) {
-              IsGameOver = true;
-            }
+            //if (distance < CollisionHitDistance) {
+              //IsGameOver = true;
+            //}
             //古いオブジェクトは削除する
             if (BoxArray[i].passedTime >= ObjectDestroyTime) {
-              scene.removeMesh(BoxArray[i]);
+              //scene.removeMesh(BoxArray[i]);
+              BoxArray[i].dispose();
             }
           }
         }, 100);
