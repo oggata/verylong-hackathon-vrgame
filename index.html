@@ -50,7 +50,7 @@
       var ObjectDestroyTime = 100 * 10;
       var CameraType = 1; //1:PC 2:VR
       var MaxBoxCreateTime = 10;
-      var MaxBoxCount = 500;
+      var MaxBoxCount = 300;
       var WallRange = 100;
       var CollisionHitDistance = 9;
       //Var
@@ -257,7 +257,14 @@
           floorMeshes: [ground,wall1,wall2,wall3,wall4],
           disableTeleportation: false,
         });
+        xr.baseExperience.sessionManager.onXRFrameObservable.add(() => {
+            console.log("state1:" + xr.baseExperience.state);
+            if (xr.baseExperience.state === BABYLON.WebXRState.IN_XR) {
+              CameraType = 2;
+            }
+        });
         xr.baseExperience.onStateChangedObservable.add((state)=>{
+          console.log("state2:" + state);
           //XRの中の世界にいる場合に初期化する
           if(state === BABYLON.WebXRState.IN_XR){
             CameraType = 2;
@@ -359,7 +366,7 @@
               BoxCreateTime++;
             }
           } else {
-            GameOverLabel.text = "GAME OVER! (VR or PC => Reset A Button)";
+            GameOverLabel.text = "GAME OVER! Score: " + Math.ceil(GameTime/10) + "| (VR or PC => Reset A Button)" + "|" + CameraType;
           }
           if (IsGameReset == true) {
             try {
@@ -382,7 +389,7 @@
             IsGameOver = false;
             //scene.dispose()
           }
-          TimeLabel.text = "time:" + GameTime;
+          TimeLabel.text = "time:" + Math.ceil(GameTime/10);
           var distance = 0;
           if (BoxCreateTime > MaxBoxCreateTime) {
             BoxCreateTime = 0;
@@ -567,9 +574,9 @@
             }
             //var distance = BABYLON.Vector3.Distance(xr.baseExperience.camera.position, BoxArray[i].getAbsolutePivotPoint())
             //var distance = BABYLON.Vector3.Distance(camera.position, BoxArray[i].getAbsolutePivotPoint())
-            //if (distance < CollisionHitDistance) {
-              //IsGameOver = true;
-            //}
+            if (distance < CollisionHitDistance) {
+              IsGameOver = true;
+            }
             //古いオブジェクトは削除する
             if (BoxArray[i].passedTime >= ObjectDestroyTime) {
               //scene.removeMesh(BoxArray[i]);
